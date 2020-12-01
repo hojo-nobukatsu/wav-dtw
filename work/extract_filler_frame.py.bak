@@ -1,0 +1,101 @@
+#! -*- coding: utf-8 -*-
+import numpy as np
+import argparse
+import re
+import myio
+
+def convertPmor(x):
+	x = x.split('\n')
+	#x[0]はファイル番号
+
+	ret = []
+
+	for l in x[1:]:
+		st,et,t = l.split()
+		if st == '-':continue
+
+		suf = t.split(',')[0]
+		if suf.startswith('['):continue
+
+		ret.append((st,et,suf))
+	return ret
+
+def loadPmor(fn):
+	with open(fn) as fp:
+		ptext = fp.read()
+
+	pt_file = ptext.split('\n\n')
+	pl = [convertPmor(x) for x in pt_file]
+
+	return pl
+
+def extract_filler_time(sent,pmor_file):
+	pmor_sent = ''.join([x[2] for x in pmor_file])
+	sent_sent = re.sub(r'\<.+?\>', '', sent)
+
+
+	N = sent_sent
+
+	assert pmor_sent == sent_sent, 'pmor:{}\nsent:{}'.format(pmor_sent,sent_sent)
+
+	filtimes_eh = []
+	filtimes_ma = []	
+	filtimes_ano = []		
+
+	q_eh = '<EH-FILLER>'
+	q_ma = '<MA-FILLER>'
+	q_ano = '<ANO-FILLER>'		
+
+	for st,et,suf in pmor_file:
+
+		while sent.startswith('<'):
+			if sent.startswith(q_eh):
+				filtimes_eh.append(st)
+				sent = re.sub(r'^{}'.format(q_eh),'',sent)
+
+			elif sent.startswith(q_ma):
+				filtimes_ma.append(st)
+				sent = re.sub(r'^{}'.format(q_ma),'',sent)
+
+			elif sent.startswith(q_ano):
+				filtimes_ano.append(st)
+				sent = re.sub(r'^{}'.format(q_ano),'',sent)
+
+			else:
+				sent = re.sub(r'^\<.+?\>','',sent)
+
+		assert sent.startswith(suf),'sent:{}\nsuf:{}'.format(sent,suf)
+		sent = sent.lstrip(suf)
+
+	assert sent == '',sent
+	return filtimes_eh,filtimes_ma,filtimes_ano
+
+def main():
+
+	pmor = loadPmor('./wav/hojo-disful/MHT-ATR503_reading.pmor')
+
+	sent = '<NO-REP><NO-FILLER>テレビゲームやパソコンで<NO-PROLONGATION><EH-FILLER><NO-REP>ゲームをして遊ぶ。'
+	pmor_file = pmor[3-1]
+	# q = '<EH-FILLER>'
+
+	print(sent)
+	ft = extract_filler_time(sent,pmor_file)
+	print(ft)
+
+	sent = '<MA-FILLER><NO-REP>嬉しいはずが<NO-PROLONGATION><EH-FILLER><NO-REP>ゆっくり寝てもいられない。'
+	pmor_file = pmor[10-1]
+	# q = '<MA-FILLER>'
+	print(sent)	
+	ft = extract_filler_time(sent,pmor_file)
+	print(ft)
+
+	sent = '<ANO-FILLER><NO-REP>外人サンは<NO-PROLONGATION><1-REP><EH-FILLER>完璧主義である。'
+	pmor_file = pmor[24-1]
+	# q = '<ANO-FILLER>'
+
+	print(sent)	
+	ft = extract_filler_time(sent,pmor_file)
+	print(ft)
+
+if __name__=='__main__':
+	main()
